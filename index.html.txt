@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Minecraft Mini</title>
+    <!-- Подключаем файл настроек приложения -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        * { margin:0; padding:0; user-select:none; -webkit-touch-callout:none; }
+        body { background:#2d2d2d; overflow:hidden; touch-action:none; font-family:Arial; }
+        canvas { display:block; background:#4a7a5a; margin:0 auto; }
+        #ui { position:absolute; top:20px; left:0; right:0; text-align:center; color:#fff; font-size:24px; pointer-events:none; text-shadow:3px 3px 0 #000; }
+        #ui span { background:rgba(0,0,0,0.5); padding:8px 20px; border-radius:30px; display:inline-block; margin:5px; }
+        #info { position:absolute; bottom:20px; left:0; right:0; text-align:center; color:#aaa; font-size:14px; pointer-events:none; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span>⛏️ <span id="score">0</span></span>
+        <span>❤️ <span id="lives">3</span></span>
+    </div>
+    <div id="info">👈 Левая половина: бег | Правая: прыжок 👉</div>
+    <canvas id="game"></canvas>
+
+<script>
+// ======== ИГРА ========
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const size = Math.min(w, h) - 40;
+    canvas.width = size;
+    canvas.height = size;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const player = {
+    x: canvas.width / 2,
+    y: canvas.height - 60,
+    size: 30,
+    targetX: canvas.width / 2,
+    vy: 0,
+    gravity: 0.8,
+    jumpStrength: -14,
+    isJumping: false
+};
+
+let blocks = [];
+let score = 0;
+let lives = 3;
+let gameOver = false;
+
+const blockEmojis = ['🧱', '🪨', '🌿', '🪵', '💎', '🔥'];
+const blockColors = ['#8B4513', '#808080', '#7CB342', '#8D6E63', '#00BCD4', '#FF6F00'];
+
+function spawnBlock() {
+    const size = 30 + Math.random() * 20;
+    const x = Math.random() * (canvas.width - size);
+    const speed = 1 + Math.random() * 2;
+    const emoji = blockEmojis[Math.floor(Math.random() * blockEmojis.length)];
+    blocks.push({
+        x: x, y: -size, size: size, speed: speed, emoji: emoji, color: blockColors[Math.floor(Math.random() * blockColors.length)]
+    });
+}
+
+function update() {
+    if (gameOver) return;
+    const dx = player.targetX - player.x;
+    player.x += dx * 0.2;
+
+    player.vy += player.gravity;
+    player.y += player.vy;
+
+    if (player.y > canvas.height - 60) {
+        player.y = canvas.height - 60;
+        player.vy = 0;
+        player.isJumping = false;
+    }
+
+    for (let i = blocks.length - 1; i >= 0; i--) {
+        const b = blocks[i];
+        b.y += b.speed;
+        const px = player.x - player.size/2;
+        const py = player.y - player.size;
+
+        if (b.x < px + player.size && b.x + b.size > px && b.y < py + player.size * 2 && b.y + b.size > py) {
+            score++;
+            document.getElementById('score').textContent = score;
+            blocks.splice(i, 1);
+            continue;
+        }
+
+        if (b.y > canvas.height) {
+            lives--;
+            document.getElementById('lives').textContent = lives;
+            blocks.splice(i, 1);
+            if (lives <= 0) gameOver = true;
+        }
+    }
+
+    if (Math.random() < 0.02 && blocks.length < 20) spawnBlock();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#4a7a5a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#3a6a4a';
+    ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+
+    for (const b of blocks) {
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, b.y, b.size, b.size);
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(b.x, b.y, b.size, b.size);
+        ctx.font = (b.size * 0.7) + 'px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(b.emoji, b.x + b.size/2, b.y + b.size/2);
+    }
+
+    const px = player.x;
+    const py = player.y;
+    const s = player.size;
+
+    ctx.fillStyle = '#f5d0a9';
+    ctx.fillRect(px - s/2, py - s, s, s);
+    ctx.strokeRect(px - s/2, py - s, s, s);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(px - s/4, py - s + s/4, 5, 5);
+    ctx.fillRect(px + s/4 - 5, py - s + s/4, 5, 5);
+    ctx.fillStyle = '#4CAF50';
+    ctx.fillRect(px - s/2, py - s/2, s, s);
+    ctx.strokeRect(px - s/2, py - s/2, s, s);
+    ctx.fillStyle = '#3a6a3a';
+    ctx.fillRect(px - s/2, py, s/2 - 2, s/2);
+    ctx.fillRect(px + 2, py, s/2 - 2, s/2);
+    ctx.strokeRect(px - s/2, py, s/2 - 2, s/2);
+    ctx.strokeRect(px + 2, py, s/2 - 2, s/2);
+
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText('Steve', px, py + s + 20);
+
+    if (gameOver) {
+        ctx.font = '48px Arial';
+        ctx.fillStyle = '#ff1744';
+        ctx.textAlign = 'center';
+        ctx.fillText('💀 GAME OVER', canvas.width/2, canvas.height/2 - 20);
+        ctx.font = '20px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('Нажми для рестарта', canvas.width/2, canvas.height/2 + 40);
+    }
+}
+
+// УПРАВЛЕНИЕ
+let moveTouchId = null;
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (gameOver) {
+        blocks = []; score = 0; lives = 3; gameOver = false;
+        document.getElementById('score').textContent = '0';
+        document.getElementById('lives').textContent = '3';
+        return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const scale = canvas.width / rect.width;
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const touchX = (touch.clientX - rect.left) * scale;
+        if (touchX > canvas.width / 2) {
+            if (!player.isJumping) { player.vy = player.jumpStrength; player.isJumping = true; }
+        } else {
+            moveTouchId = touch.identifier;
+            player.targetX = touchX;
+        }
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (gameOver) return;
+    const rect = canvas.getBoundingClientRect();
+    const scale = canvas.width / rect.width;
+    for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
+        if (touch.identifier === moveTouchId) {
+            player.targetX = (touch.clientX - rect.left) * scale;
+        }
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === moveTouchId) moveTouchId = null;
+    }
+});
+
+function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+spawnBlock(); gameLoop();
+
+// Автоматическая регистрация сервис-воркера для работы офлайн
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
+
+Режим ИИ в Google Поиске
